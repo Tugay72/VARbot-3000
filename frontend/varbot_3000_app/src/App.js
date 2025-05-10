@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import 'antd/dist/reset.css';
 import { Select, Button, Row, Col, Card, message } from 'antd';
-
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
@@ -16,16 +15,16 @@ function App() {
 
     const [messageApi, contextHolder] = message.useMessage();
 
-    const error_notification = () => {
+    const error_notification = (message) => {
         messageApi.open({
             type: 'error',
-            content: 'Veri bulunamadı!',
+            content: message,
         });
     };
 
     const handleSubmit = async () => {
         if (!homeTeam || !awayTeam || homeTeam === awayTeam) {
-            error_notification()
+            error_notification('Takım bulunamadı!')
             return;
         }
 
@@ -43,14 +42,14 @@ function App() {
             });
 
             if (!res.ok) {
-                error_notification()
+                error_notification('Veri bulunamadı')
                 return;
             }
 
             const data = await res.json();
 
             if (!data || data.home_score === undefined || data.away_score === undefined) {
-                error_notification()
+                error_notification('Hatalı sonuç')
                 return;
             }
 
@@ -60,20 +59,22 @@ function App() {
             });
 
             const homeData = Object.entries(data.home_goal_probs).map(([goal, value]) => ({
-                goal,
-                value
+                goal: goal,
+                value: parseFloat(Number(value).toFixed(2))
             }));
 
+
             const awayData = Object.entries(data.away_goal_probs).map(([goal, value]) => ({
-                goal,
-                value
+                goal: goal,
+                value: parseFloat(Number(value).toFixed(2))
             }));
+
 
             setChartData({ home: homeData, away: awayData });
 
         } catch (error) {
             console.error(error);
-            error_notification()
+            error_notification('Hata')
         }
     };
 

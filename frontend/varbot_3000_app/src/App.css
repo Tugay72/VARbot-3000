@@ -7,8 +7,9 @@
 }
 
 .App-container{
-    width: 800px;
+    width: 960px;
     padding: 32px;
+    margin: 64px;
     background-color: #f9f9f9;
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);

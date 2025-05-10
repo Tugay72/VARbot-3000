@@ -91,5 +91,28 @@ def predict():
         'away_goal_probs': normalized_away_probs
     })
 
+match_df = pd.read_csv('results.csv', names=[
+    'date', 'home_team', 'away_team', 'home_score', 'away_score',
+    'tournament', 'city', 'country', 'neutral'
+])
+
+@app.route('/history', methods=['GET'])
+def get_match_history():
+    home = request.args.get('home')
+    away = request.args.get('away')
+
+    if not home or not away:
+        return jsonify({'error': 'Eksik parametre'}), 400
+
+    filtered = match_df[((match_df['home_team'] == home) & (match_df['away_team'] == away)) |
+                        ((match_df['home_team'] == away) & (match_df['away_team'] == home))]
+
+    if filtered.empty:
+        return jsonify([])
+
+    history = filtered.sort_values(by='date', ascending=False).to_dict(orient='records')
+    return jsonify(history)
+
+
 if __name__ == '__main__':
     app.run(debug=True)

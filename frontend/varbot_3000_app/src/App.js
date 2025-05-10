@@ -1,17 +1,62 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import 'antd/dist/reset.css';
-import { Select, Button, Row, Col, Card, message } from 'antd';
+import { Select, Button, Row, Col, Card, message, Table, Tag } from 'antd';
+import { SwapOutlined } from '@ant-design/icons'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import './App.css';
 import teamOptions from './teamOptions';
 
+const columns = [
+    {
+        title: 'Tarih',
+        dataIndex: 'date',
+        key: 'date',
+    },
+    {
+        title: 'Ev Sahibi',
+        dataIndex: 'home_team',
+        key: 'home_team',
+        render: (text, record) => {
+            const color = record.home_score > record.away_score ? 'green' :
+                record.home_score < record.away_score ? 'red' : 'default';
+            return <Tag color={color}>{text}</Tag>;
+        }
+    },
+    {
+        title: 'Skor',
+        key: 'score',
+        render: (text, record) => `${record.home_score} - ${record.away_score}`,
+    },
+    {
+        title: 'Deplasman',
+        dataIndex: 'away_team',
+        key: 'away_team',
+        render: (text, record) => {
+            const color = record.away_score > record.home_score ? 'green' :
+                record.away_score < record.home_score ? 'red' : 'default';
+            return <Tag color={color}>{text}</Tag>;
+        }
+    },
+    {
+        title: 'Turnuva',
+        dataIndex: 'tournament',
+        key: 'tournament',
+    },
+    {
+        title: 'Ülke',
+        dataIndex: 'country',
+        key: 'country',
+    }
+];
+
 function App() {
     const [homeTeam, setHomeTeam] = useState('');
     const [awayTeam, setAwayTeam] = useState('');
     const [stats, setStats] = useState({ home: { goals: 0 }, away: { goals: 0 } });
     const [chartData, setChartData] = useState({ home: [], away: [] });
+    const [matchHistory, setMatchHistory] = useState([]);
 
     const [messageApi, contextHolder] = message.useMessage();
 
@@ -28,6 +73,7 @@ function App() {
             return;
         }
 
+        // Skor ve gol tahmini yap
         try {
             const res = await fetch('http://127.0.0.1:5000/predict', {
                 method: 'POST',
@@ -76,20 +122,29 @@ function App() {
             console.error(error);
             error_notification('Hata')
         }
+
+
+        // Geçmiş maçları al
+        try {
+            const historyRes = await fetch(`http://127.0.0.1:5000/history?home=${homeTeam}&away=${awayTeam}`);
+            const historyData = await historyRes.json();
+            setMatchHistory(historyData);
+        } catch (err) {
+            console.error("Geçmiş veri alınamadı", err);
+        }
+
     };
-
-
 
     return (
         <div className="App">
             {contextHolder}
             <div className="App-container">
                 <Row gutter={16} align="middle" style={{ marginBottom: '20px' }}>
-                    <Col span={8}>
+                    <Col span={7}>
                         <Select
                             showSearch
                             placeholder="Ev Sahibi Takım"
-                            style={{ width: 160 }}
+                            style={{ width: '100%' }}
                             options={teamOptions}
                             onChange={value => setHomeTeam(value)}
                             value={homeTeam}
@@ -98,11 +153,21 @@ function App() {
                             }
                         />
                     </Col>
-                    <Col span={8}>
+                    <Col span={2} style={{ textAlign: 'center' }}>
+                        <Button
+                            onClick={() => {
+                                const temp = homeTeam;
+                                setHomeTeam(awayTeam);
+                                setAwayTeam(temp);
+                            }}
+                            icon={<SwapOutlined />}
+                        />
+                    </Col>
+                    <Col span={7}>
                         <Select
                             showSearch
                             placeholder="Deplasman Takımı"
-                            style={{ width: 160 }}
+                            style={{ width: '100%' }}
                             options={teamOptions.filter(team => team.value !== homeTeam)}
                             onChange={value => setAwayTeam(value)}
                             value={awayTeam}
@@ -117,6 +182,7 @@ function App() {
                         </Button>
                     </Col>
                 </Row>
+
 
                 <Row gutter={16}>
                     <Col span={12}>
@@ -147,6 +213,19 @@ function App() {
                                     <Bar dataKey="value" fill="#82ca9d" />
                                 </BarChart>
                             </ResponsiveContainer>
+                        </Card>
+                    </Col>
+                </Row>
+                <Row gutter={16} style={{ marginTop: '20px' }}>
+                    <Col span={24}>
+                        <Card title="İki Takım Arasındaki Geçmiş Maçlar">
+                            <Table
+                                columns={columns}
+                                dataSource={matchHistory}
+                                pagination={{ pageSize: 10, showSizeChanger: false }}
+                                rowKey={(record, index) => index}
+                                locale={{ emptyText: 'Geçmiş maç bulunamadı.' }}
+                            />
                         </Card>
                     </Col>
                 </Row>

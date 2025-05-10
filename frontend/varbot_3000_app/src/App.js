@@ -1,71 +1,93 @@
 import React, { useState } from 'react';
+import 'antd/dist/reset.css';
 import { Select, Button, Row, Col, Card, message } from 'antd';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import './App.css';
 
-import teamOptions from './teamOptions.js'
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
+import './App.css';
+import teamOptions from './teamOptions';
 
 function App() {
     const [homeTeam, setHomeTeam] = useState('');
     const [awayTeam, setAwayTeam] = useState('');
-    const [stats, setStats] = useState({
-        home: { goals: 0 },
-        away: { goals: 0 }
-    });
-    const [goalProbs, setGoalProbs] = useState({
-        home: {},
-        away: {}
-    });
+    const [stats, setStats] = useState({ home: { goals: 0 }, away: { goals: 0 } });
+    const [chartData, setChartData] = useState({ home: [], away: [] });
 
-    const handleSubmit = async () => {
-        if (!homeTeam || !awayTeam || homeTeam === awayTeam) {
-            message.error("Lütfen farklı iki takım seçin.");
-            return;
-        }
+    const [messageApi, contextHolder] = message.useMessage();
 
-        const res = await fetch('http://127.0.0.1:5000/predict', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                home_team: homeTeam,
-                away_team: awayTeam,
-                tournament: "Friendly",
-                neutral: 0,
-                year: 2025
-            })
-        });
-
-        const data = await res.json();
-
-        setStats({
-            home: { goals: Math.round(data.home_score) },
-            away: { goals: Math.round(data.away_score) }
-        });
-
-        setGoalProbs({
-            home: data.home_goal_probs,
-            away: data.away_goal_probs
+    const error_notification = () => {
+        messageApi.open({
+            type: 'error',
+            content: 'Veri bulunamadı!',
         });
     };
 
-    const homeData = Object.keys(goalProbs.home).map(goal => ({
-        goal: goal,
-        value: goalProbs.home[goal]
-    }));
+    const handleSubmit = async () => {
+        if (!homeTeam || !awayTeam || homeTeam === awayTeam) {
+            error_notification()
+            return;
+        }
 
-    const awayData = Object.keys(goalProbs.away).map(goal => ({
-        goal: goal,
-        value: goalProbs.away[goal]
-    }));
+        try {
+            const res = await fetch('http://127.0.0.1:5000/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    home_team: homeTeam,
+                    away_team: awayTeam,
+                    tournament: "Friendly",
+                    neutral: 0,
+                    year: 2025
+                })
+            });
+
+            if (!res.ok) {
+                error_notification()
+                return;
+            }
+
+            const data = await res.json();
+
+            if (!data || data.home_score === undefined || data.away_score === undefined) {
+                error_notification()
+                return;
+            }
+
+            setStats({
+                home: { goals: Math.round(data.home_score) },
+                away: { goals: Math.round(data.away_score) }
+            });
+
+            const homeData = Object.entries(data.home_goal_probs).map(([goal, value]) => ({
+                goal,
+                value
+            }));
+
+            const awayData = Object.entries(data.away_goal_probs).map(([goal, value]) => ({
+                goal,
+                value
+            }));
+
+            setChartData({ home: homeData, away: awayData });
+
+        } catch (error) {
+            console.error(error);
+            error_notification()
+        }
+    };
+
+
 
     return (
         <div className="App">
+            {contextHolder}
             <div className="App-container">
                 <Row gutter={16} align="middle" style={{ marginBottom: '20px' }}>
                     <Col span={8}>
                         <Select
                             showSearch
-                            placeholder="Select Home Team"
+                            placeholder="Ev Sahibi Takım"
                             style={{ width: 160 }}
                             options={teamOptions}
                             onChange={value => setHomeTeam(value)}
@@ -78,7 +100,7 @@ function App() {
                     <Col span={8}>
                         <Select
                             showSearch
-                            placeholder="Select Away Team"
+                            placeholder="Deplasman Takımı"
                             style={{ width: 160 }}
                             options={teamOptions.filter(team => team.value !== homeTeam)}
                             onChange={value => setAwayTeam(value)}
@@ -88,20 +110,19 @@ function App() {
                             }
                         />
                     </Col>
-
                     <Col span={8}>
                         <Button type="primary" onClick={handleSubmit}>
-                            Predict Result
+                            Tahmin Et
                         </Button>
                     </Col>
                 </Row>
 
                 <Row gutter={16}>
                     <Col span={12}>
-                        <Card title={`Home: ${homeTeam || '-'}`}>
-                            <p>Goals: {stats.home.goals}</p>
+                        <Card title={`Ev Sahibi: ${homeTeam || '-'}`}>
+                            <p>Gol Tahmini: {stats.home.goals}</p>
                             <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={homeData}>
+                                <BarChart data={chartData.home}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="goal" />
                                     <YAxis />
@@ -113,10 +134,10 @@ function App() {
                         </Card>
                     </Col>
                     <Col span={12}>
-                        <Card title={`Away: ${awayTeam || '-'}`}>
-                            <p>Goals: {stats.away.goals}</p>
+                        <Card title={`Deplasman: ${awayTeam || '-'}`}>
+                            <p>Gol Tahmini: {stats.away.goals}</p>
                             <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={awayData}>
+                                <BarChart data={chartData.away}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="goal" />
                                     <YAxis />

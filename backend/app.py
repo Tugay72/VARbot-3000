@@ -49,8 +49,8 @@ def predict():
     away_goal_probs = {i: calculate_poisson_probability(away_score, i) for i in range(6)}
     
     # Olasılıkları normalize et
-    normalized_home_probs = normalize_probabilities(home_goal_probs)
-    normalized_away_probs = normalize_probabilities(away_goal_probs)
+    normalized_home_probs = math.floor(normalize_probabilities(home_goal_probs))
+    normalized_away_probs = math.floor(normalize_probabilities(away_goal_probs))
     
     # Sonuçları döndür
     return jsonify({
